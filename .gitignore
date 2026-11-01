@@ -1,0 +1,4 @@
+.investigacion/
+doc/tags
+*.log
+.DS_Store

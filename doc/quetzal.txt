@@ -1,0 +1,164 @@
+*quetzal.txt*  Integración oficial de Lenguaje Quetzal para Neovim  v0.1.0
+
+==============================================================================
+CONTENIDO                                                    *quetzal-contenido*
+
+1. Introducción ................................ |quetzal-introduccion|
+2. Instalación ................................. |quetzal-instalacion|
+3. Configuración ............................... |quetzal-configuracion|
+4. LSP ......................................... |quetzal-lsp|
+5. Archivos y sintaxis ......................... |quetzal-archivos|
+6. Asignaciones ................................ |quetzal-asignaciones|
+7. Comandos .................................... |quetzal-comandos|
+8. Salud ....................................... |quetzal-salud|
+9. Tree-sitter ................................. |quetzal-treesitter|
+
+==============================================================================
+1. INTRODUCCIÓN                                          *quetzal-introduccion*
+
+lenguaje-quetzal.nvim reconoce programas Lenguaje Quetzal y conecta Neovim
+0.11+ con el servidor oficial quetzal-lsp. No requiere nvim-lspconfig,
+NvChad, Tree-sitter ni motores de completado externos.
+
+La API pública es: >lua
+    require("quetzal").setup(opciones)
+<
+La tabla opciones es opcional. La primera llamada inicializa el plugin; las
+llamadas posteriores conservan la configuración original y no duplican eventos.
+
+==============================================================================
+2. INSTALACIÓN                                            *quetzal-instalacion*
+
+Instale el servidor desde la rama quetzal-0.0.3 del intérprete: >bash
+    cargo install --path crates/lsp --locked
+<
+El ejecutable predeterminado es: >bash
+    quetzal-lsp --stdio
+<
+Con lazy.nvim utilice una especificación con main="quetzal", ft="quetzal" y
+opts={}. Registre la extensión durante el arranque: >lua
+    init = function()
+        vim.filetype.add({ extension = { qz = "quetzal" } })
+    end
+<
+Esto permite abrir un .qz antes de que el plugin se cargue por filetype.
+Consulte el README para ejemplos de NvChad, LazyVim, AstroNvim y paquetes
+nativos.
+
+==============================================================================
+3. CONFIGURACIÓN                                        *quetzal-configuracion*
+
+Valores predeterminados: >lua
+    require("quetzal").setup({
+        lsp = {
+            habilitado = true,
+            comando = { "quetzal-lsp", "--stdio" },
+            configuracion = {},
+        },
+        arbol_sintaxis = {
+            habilitado = true,
+            resaltado = true,
+            plegado = false,
+        },
+        sintaxis = { habilitada = true },
+        diagnosticos = { habilitados = true },
+        asignaciones = {
+            habilitadas = false,
+            definicion = "gd",
+            hover = "K",
+            diagnosticos = "<leader>qd",
+            siguiente_diagnostico = "]d",
+            anterior_diagnostico = "[d",
+            acciones_codigo = "<leader>qa",
+        },
+        notificaciones = { habilitadas = true },
+    })
+<
+lsp.comando debe ser una lista no vacía de cadenas. Use una ruta absoluta si
+el ejecutable no está en PATH. lsp.configuracion acepta opciones de
+|vim.lsp.Config|, excepto cmd y filetypes, reservados por el plugin.
+
+Si diagnosticos.habilitados=false se deshabilita solamente el espacio de
+diagnósticos del servidor Quetzal en sus buffers. No se cambian los estilos
+ni los diagnósticos globales de otros servidores.
+
+Las opciones incorrectas producen errores descriptivos en español.
+
+==============================================================================
+4. LSP                                                              *quetzal-lsp*
+
+La configuración nativa se llama "quetzal" y está en lsp/quetzal.lua. Usa
+los marcadores quetzal.json y .git. workspace_required=false permite editar
+archivos individuales. Neovim reutiliza clientes que comparten raíz.
+
+El servidor de la rama quetzal-0.0.3 anuncia UTF-16, sincronización completa,
+diagnósticos, completado, hover y definiciones. Las APIs habituales son: >lua
+    vim.lsp.buf.hover()
+    vim.lsp.buf.definition()
+<
+El completado puede consumirse mediante el motor configurado por el usuario o
+el omnifunc nativo. No se anuncian referencias, renombrado, formateo, firma,
+acciones de código, símbolos o inlay hints hasta que el servidor los soporte.
+
+==============================================================================
+5. ARCHIVOS Y SINTAXIS                                        *quetzal-archivos*
+
+La extensión .qz corresponde a filetype=quetzal. El ftplugin define localmente: >vim
+    commentstring=//\ %s
+    shiftwidth=4
+    tabstop=4
+    softtabstop=4
+    expandtab
+<
+Quetzal utiliza comentarios de línea // y bloques delimitados por llaves. El
+resaltado tradicional provisional reconoce palabras clave, comentarios,
+cadenas dobles, cadenas interpoladas t"..." y números. Tree-sitter tiene
+prioridad cuando su resaltado se activa correctamente.
+
+==============================================================================
+6. ASIGNACIONES                                            *quetzal-asignaciones*
+
+Están deshabilitadas de forma predeterminada. Active
+asignaciones.habilitadas=true para crear atajos locales al conectar el LSP.
+Cada tecla puede cambiarse o desactivarse con false. No se sobrescriben
+asignaciones existentes y las funciones LSP respetan server_capabilities.
+
+La acción acciones_codigo queda reservada para un servidor futuro; el servidor
+actual no anuncia codeActionProvider.
+
+==============================================================================
+7. COMANDOS                                                  *quetzal-comandos*
+
+:QuetzalInfo                                                   *:QuetzalInfo*
+    Muestra versiones, configuración, ejecutable, clientes, filetype, raíz,
+    Tree-sitter y el cliente conectado al buffer actual.
+
+:QuetzalSalud                                                 *:QuetzalSalud*
+    Abre :checkhealth quetzal.
+
+:QuetzalReiniciarLsp                                   *:QuetzalReiniciarLsp*
+    Reinicia únicamente los clientes de la configuración quetzal. Espera la
+    detención anterior para evitar duplicados y no afecta a otros lenguajes.
+
+==============================================================================
+8. SALUD                                                        *quetzal-salud*
+
+Ejecute: >vim
+    :checkhealth quetzal
+<
+Comprueba Neovim, filetype, configuración y ejecutable LSP, clientes activos
+y parser opcional. Las sugerencias indican cómo corregir los problemas.
+
+==============================================================================
+9. TREE-SITTER                                              *quetzal-treesitter*
+
+El parser se desarrolla en https://github.com/AntaresGT/tree-sitter-quetzal.
+No está incluido en este plugin. Si ya está instalado,
+arbol_sintaxis.habilitado permite cargarlo con las APIs nativas de Neovim.
+El plegado requiere arbol_sintaxis.plegado=true y una consulta folds válida.
+
+nvim-treesitter main requiere Neovim 0.12+. Su rama heredada master está
+dirigida a Neovim 0.10/0.11. No se utilizan APIs de instalación de ninguna de
+las dos ramas. La ausencia del parser nunca bloquea el LSP.
+
+vim:tw=78:ts=8:noet:ft=help:norl:

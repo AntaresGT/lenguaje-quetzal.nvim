@@ -1,0 +1,76 @@
+name: Calidad e integración
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  calidad:
+    name: Neovim ${{ matrix.neovim }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        neovim: [v0.11.4, stable]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Instalar Neovim
+        uses: rhysd/action-setup-vim@v1
+        with:
+          neovim: true
+          version: ${{ matrix.neovim }}
+
+      - name: Verificar StyLua
+        uses: JohnnyMorganz/stylua-action@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          version: latest
+          args: --check lua lsp plugin ftplugin tests ejemplos
+
+      - name: Instalar Luacheck
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes luarocks
+          sudo luarocks install luacheck 1.2.0
+
+      - name: Ejecutar análisis estático
+        run: make analisis
+
+      - name: Preparar lazy.nvim para la prueba real
+        run: git clone --depth 1 https://github.com/folke/lazy.nvim.git .investigacion/lazy
+
+      - name: Ejecutar pruebas unitarias y de lazy.nvim
+        run: make pruebas-unitarias pruebas-lazy
+
+  integracion-lsp:
+    name: Servidor LSP real quetzal-0.0.3
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Instalar Neovim estable
+        uses: rhysd/action-setup-vim@v1
+        with:
+          neovim: true
+          version: stable
+
+      - name: Instalar Rust estable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Obtener el servidor oficial
+        run: git clone --depth 1 --branch quetzal-0.0.3 https://github.com/AntaresGT/lenguaje-quetzal.git .investigacion/lenguaje-quetzal
+
+      - name: Compilar e instalar quetzal-lsp en el entorno de CI
+        run: cargo install --path .investigacion/lenguaje-quetzal/crates/lsp --locked --root .investigacion/servidor
+
+      - name: Exponer el servidor en PATH
+        run: echo "$GITHUB_WORKSPACE/.investigacion/servidor/bin" >> "$GITHUB_PATH"
+
+      - name: Exigir la integración LSP real
+        run: QUETZAL_LSP_REQUERIDO=1 make pruebas-lsp
